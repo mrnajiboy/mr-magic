@@ -1,0 +1,31 @@
+{
+  "name": "mr-magic",
+  "version": "1.0.0",
+  "description": "*The cool tool for downloading songs and lyrics~*",
+  "main": "commitlint.config.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky install",
+    "release": "commit-and-tag-version",
+    "release:minor": "commit-and-tag-version --release-as minor",
+    "release:patch": "commit-and-tag-version --release-as patch",
+    "release:major": "commit-and-tag-version --release-as major",
+    "release:first": "commit-and-tag-version --first-release"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mrnajiboy/mr-magic.git"
+  },
+  "keywords": [],
+  "author": "Kenyatta Naji Johnson-Adams",
+  "license": "MIT",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/mrnajiboy/mr-magic/issues"
+  },
+  "homepage": "https://github.com/mrnajiboy/mr-magic#readme",
+  "devDependencies": {
+    "commit-and-tag-version": "^12.5.1",
+    "husky": "^9.1.7"
+  }
+}

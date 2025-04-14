@@ -1,0 +1,16 @@
+# Ignore everything
+*
+
+# But not these files...
+!.gitignore
+!mr-magic-downloader.sh
+!/README.md
+!/LICENSE
+!/CHANGELOG.md
+!.husky/**
+!/package.json
+!/package-lock.json
+# etc...
+
+# ...even if they are in subdirectories
+!*/
