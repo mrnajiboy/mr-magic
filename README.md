@@ -70,10 +70,11 @@ chmod +x mr-magic-downloader.sh
 ```
 
 3. Run the application:
+```
 ./mr-magic-downloader.sh
+```
 
-
-4. Use the built-in dependency installer on first run to set up all required components.
+5. Use the built-in dependency installer on first run to set up all required components.
    - Options for installing Python globally or in virtual environment only
    - Automatic detection of OS and appropriate package installation
 
