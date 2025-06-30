@@ -1144,9 +1144,9 @@ initialize_credentials() {
   },
   "default_ai_provider": "openai",
   "genius": {
-    "client_id": "WJJ_baoWjZpPfwcfQxIgLutAVWUtdDbNdTtvXquoSmV4rTDdBrUsatWwydCImFTV",
-    "client_secret": "upjKmr7213AXfP5RZyt6W4jT_FwRh0U6fNJrNPXFYZ7DOM5hJPeYxjkbs9-zlH8w-1_ZIvvBacVovcrCJJJ5Bg",
-    "api_token": "h_-sZ5qpS-Ah2mtOit8Nz7a8tcv2L_iKsf3NpftBjh_SSKYVNJilM6m-iJY-yQ05"
+    "client_id": "",
+    "client_secret": "",
+    "api_token": ""
   },
   "credentials_encrypted": false,
   "last_used_timestamp": "$(date +%Y-%m-%d)"
@@ -1472,8 +1472,8 @@ create_default_config() {
         debug_log "Creating default config file"
         cat > "$CONFIG_DIR/default.json" << EOF
 {
-    "client_id": "e7608bb5e91240bd82e318ac7e9c9dbc",
-    "client_secret": "ecdfa5e96a3145f8af49fefd61de1ab4",
+    "client_id": "",
+    "client_secret": "",
     "auth_token": null,
     "user_auth": false,
     "headless": false,
