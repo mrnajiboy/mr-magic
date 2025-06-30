@@ -60,7 +60,7 @@ Mr. Magic is a comprehensive Bash tool for downloading songs, lyrics, and genera
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/mr-magic.git
+git clone https://github.com/mrnajiboy/mr-magic.git
 cd mr-magic
 ```
 
