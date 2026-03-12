@@ -70,7 +70,7 @@ chmod +x mr-magic-downloader.sh
 ```
 
 3. Run the application:
-```
+```bash
 ./mr-magic-downloader.sh
 ```
 
@@ -111,7 +111,7 @@ Use the configuration menu to set up spotDL options, output directory, and other
   - Download lyrics
   - Configure settings
 
-2. From the main menu, you can:
+4. From the main menu, you can:
    - **Download**: Access the download submenu with options for:
      - Download Wizard (guided process)
      - Quick Download Song/Album/Playlist

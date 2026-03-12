@@ -29,7 +29,8 @@ install_dependencies() {
     echo ""
     echo "Note: Some installations may require sudo privileges"
     echo ""
-    read -p "Continue with installation? (y/n): " continue_install
+    # Use -r to avoid mangling backslashes in user input (SC2162)
+    read -r -p "Continue with installation? (y/n): " continue_install
     
     if [[ ! "$continue_install" =~ ^[Yy]$ ]]; then
         echo "Installation cancelled."
@@ -53,7 +54,7 @@ install_dependencies() {
     setup_pyenv_environment
     
     # Install Whisper if user wants
-    read -p "Would you like to install OpenAI Whisper for audio transcription? (y/n): " install_whisper_choice
+    read -r -p "Would you like to install OpenAI Whisper for audio transcription? (y/n): " install_whisper_choice
     if [[ "$install_whisper_choice" =~ ^[Yy]$ ]]; then
         install_whisper
     fi
@@ -84,7 +85,7 @@ install_whisper() {
     echo "2. A separate pyenv environment for Whisper"
     echo "3. OpenAI Whisper and its dependencies"
     echo ""
-    read -p "Continue with installation? (y/n): " continue_install
+    read -r -p "Continue with installation? (y/n): " continue_install
     
     if [[ ! "$continue_install" =~ ^[Yy]$ ]]; then
         echo "Installation cancelled."
@@ -101,8 +102,7 @@ install_whisper() {
     # Install Python 3.9.9 with pyenv if not already installed
     if ! pyenv versions --bare | grep -q "3.9.9"; then
         echo "Installing Python 3.9.9..."
-        pyenv install 3.9.9
-        if [ $? -ne 0 ]; then
+        if ! pyenv install 3.9.9; then
             echo "Failed to install Python 3.9.9."
             return 1
         fi
@@ -113,8 +113,7 @@ install_whisper() {
     # Create a virtualenv for Whisper if not exists
     if ! pyenv versions --bare | grep -q "whisper"; then
         echo "Creating whisper environment..."
-        pyenv virtualenv 3.9.9 whisper
-        if [ $? -ne 0 ]; then
+        if ! pyenv virtualenv 3.9.9 whisper; then
             echo "Failed to create whisper environment."
             return 1
         fi
@@ -128,8 +127,7 @@ install_whisper() {
     pyenv activate whisper
     
     # Install Whisper
-    pip install -U openai-whisper
-    if [ $? -ne 0 ]; then
+    if ! pip install -U openai-whisper; then
         echo "Failed to install Whisper package."
         pyenv deactivate
         return 1
@@ -6304,6 +6302,156 @@ EOF
         return 1
     fi
     
+    return 0
+}
+
+# Function to romanize lyrics (best-effort, AI-assisted when credentials exist)
+romanize_lyrics() {
+    local input_file="$1"
+
+    if [ -z "$input_file" ]; then
+        echo "Select a lyrics file to romanize:"
+        if [ -z "$OUTPUT_DIR" ]; then
+            echo "Output directory not set."
+            set_output_directory || return 1
+        fi
+
+        local lyrics_files
+        lyrics_files=$(find "$OUTPUT_DIR" -type f \( -name "*.lrc" -o -name "*.srt" -o -name "*.txt" \) | sort)
+
+        if [ -z "$lyrics_files" ]; then
+            echo "No lyrics files found in $OUTPUT_DIR."
+            read -p "Enter full path to lyrics file (or 'c' to cancel): " custom_file
+            [ "$custom_file" = "c" ] && return 1
+            [ -f "$custom_file" ] || { echo "Invalid file path."; return 1; }
+            input_file="$custom_file"
+        else
+            local count=1
+            while IFS= read -r file; do
+                echo "$count) $(basename "$file")"
+                count=$((count + 1))
+            done <<< "$lyrics_files"
+
+            read -p "Select file number (or 'c' to cancel): " file_choice
+            [ "$file_choice" = "c" ] && return 1
+            if [[ "$file_choice" =~ ^[0-9]+$ ]] && [ "$file_choice" -gt 0 ] && [ "$file_choice" -lt "$count" ]; then
+                input_file=$(echo "$lyrics_files" | sed -n "${file_choice}p")
+            else
+                echo "Invalid selection."
+                return 1
+            fi
+        fi
+    fi
+
+    [ -f "$input_file" ] || { echo "Error: File not found: $input_file"; return 1; }
+
+    local output_dir
+    output_dir="$(dirname "$input_file")"
+    local base_name
+    base_name="${input_file%.*}"
+    local output_file
+    output_file="$output_dir/$(basename "$base_name") (Romanized).txt"
+
+    local credentials_file="$API_DIR/credentials.json"
+    if [ ! -f "$credentials_file" ]; then
+        echo "AI credentials not configured. Falling back to plain formatting."
+        format_lyrics "$input_file" "simple"
+        return $?
+    fi
+
+    local provider
+    provider=$(jq -r '.default_ai_provider // ""' "$credentials_file" 2>/dev/null)
+    local model_name
+    model_name=$(jq -r --arg provider "$provider" '.ai_models[$provider].default_model // ""' "$credentials_file" 2>/dev/null)
+    local api_key
+    api_key=$(jq -r --arg provider "$provider" '.ai_models[$provider].api_key // ""' "$credentials_file" 2>/dev/null)
+    local api_url
+    api_url=$(jq -r --arg provider "$provider" '.ai_models[$provider].api_url // ""' "$credentials_file" 2>/dev/null)
+
+    if [ -z "$provider" ] || [ -z "$api_key" ] || [ "$api_key" = "null" ]; then
+        echo "No usable AI provider configured. Falling back to plain formatting."
+        format_lyrics "$input_file" "simple"
+        return $?
+    fi
+
+    local lyrics_content
+    lyrics_content=$(cat "$input_file")
+    [ -n "$lyrics_content" ] || { echo "Error: Lyrics file is empty."; return 1; }
+
+    local prompt
+    prompt=$(cat <<EOF_PROMPT
+Romanize the following lyrics into Latin characters while preserving line breaks and section spacing.
+
+Rules:
+1) Keep original lyric order and line structure.
+2) Do not add commentary, headers, or explanations.
+3) If text is already Latin, keep it as-is.
+4) Remove timestamps/numbering if present.
+
+Lyrics:
+$lyrics_content
+EOF_PROMPT
+)
+
+    local temp_result
+    temp_result=$(mktemp)
+
+    case "$provider" in
+        "anthropic")
+            curl -s "$api_url" \
+                -H "content-type: application/json" \
+                -H "x-api-key: $api_key" \
+                -H "anthropic-version: 2023-06-01" \
+                --data @- > "$temp_result" <<EOF
+{
+  "model": "$model_name",
+  "max_tokens": 4000,
+  "messages": [
+    {
+      "role": "user",
+      "content": $(printf "%s" "$prompt" | jq -Rs .)
+    }
+  ]
+}
+EOF
+            romanized=$(jq -r '.content[0].text // ""' "$temp_result" 2>/dev/null)
+            ;;
+        "openai")
+            curl -s "$api_url" \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer $api_key" \
+                --data @- > "$temp_result" <<EOF
+{
+  "model": "$model_name",
+  "messages": [
+    {
+      "role": "user",
+      "content": $(printf "%s" "$prompt" | jq -Rs .)
+    }
+  ],
+  "temperature": 0.2
+}
+EOF
+            romanized=$(jq -r '.choices[0].message.content // ""' "$temp_result" 2>/dev/null)
+            ;;
+        *)
+            echo "Provider '$provider' is not supported for romanization yet."
+            rm -f "$temp_result"
+            format_lyrics "$input_file" "simple"
+            return $?
+            ;;
+    esac
+
+    rm -f "$temp_result"
+
+    if [ -z "$romanized" ] || [ "$romanized" = "null" ]; then
+        echo "Romanization failed. Falling back to plain formatting."
+        format_lyrics "$input_file" "simple"
+        return $?
+    fi
+
+    echo "$romanized" > "$output_file"
+    echo "Romanized lyrics saved to: $output_file"
     return 0
 }
 
